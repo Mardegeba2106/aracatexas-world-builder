@@ -1,0 +1,17 @@
+{
+  "seed": 20261106,
+  "cache_file": "C:\\Users\\guilh\\Desktop\\python\\knoxify-master\\output\\_cache\\overpass\\1d7eb5974fa95dec318ef69f8bbf92fed48f7663.json",
+  "osm_elements": 1112,
+  "roads_used": 753,
+  "blocks": 648,
+  "lots": 5941,
+  "buildings_total": 4629,
+  "buildings_procedural": 4483,
+  "buildings_osm_fixed": 146,
+  "outputs": [
+    "blocks.geojson",
+    "lots.geojson",
+    "buildings.geojson",
+    "preview.svg"
+  ]
+}
