@@ -1,3 +1,48 @@
+# Araçatexas World Builder — gerador visual
+
+Este repositório agora inclui um gerador visual independente para transformar o mapa preparado do Araçatexas em uma primeira versão procedural de pixel art. O fluxo antigo Knoxify/Project Zomboid continua preservado.
+
+## Executar no Windows
+
+1. Baixe ou clone este repositório.
+2. Execute `install_aracatexas_world_builder.bat`.
+3. O instalador extrai o complemento, instala as dependências Python e inicia o servidor.
+4. Abra **http://127.0.0.1:5001/**.
+5. Selecione o arquivo `public/data/map.json` do repositório `aracatexas-game` (não é necessário integrar nem modificar o jogo).
+
+Também é possível executar manualmente:
+```powershell
+python -m pip install -r requirements.txt
+python ara_world_app.py
+```
+
+## O que o gerador produz
+
+- Prévia rasterizada em pixel art top-down, com terreno, quadras, ruas, calçadas, meios-fios, marcações viárias, fachadas/telhados e vegetação.
+- Quatro imagens de controle para terreno, zonas, vias e construções.
+- Atlas base de terreno e elementos urbanos com células de 32×32 px.
+- Atlas inicial de construções modulares (casas, sobrados, comércio, edifício e galpão).
+- `aracatexas_map.json`, preservando as geometrias geográficas e acrescentando metadados visuais.
+- Índice de chunks e manifesto.
+- ZIP com os resultados para inspecionar ou transportar.
+
+O gerador usa uma seed fixa por padrão, para resultados reproduzíveis. A escala de referência é 2 metros por tile de 32×32 px. As construções e atlas são uma biblioteca inicial: esta entrega não altera o runtime Phaser nem afirma que os sprites já estejam integrados ao jogo.
+
+## CLI e testes
+
+```powershell
+python -m generator.ara_world --source "C:\caminho\aracatexas-game\public\data\map.json" --output "output\aracatexas_visual_world"
+python -m unittest tests.test_ara_world -v
+```
+
+O mapa de entrada precisa ser o JSON preparado pelo Araçatexas Game, com CRS EPSG:32722 e camadas `blocks`, `lots`, `buildings` e `roads`. Nenhum arquivo do repositório principal do jogo é alterado.
+
+## Arquivo do complemento
+
+O pacote-fonte está em [downloads/ara_world_builder_addon.zip](downloads/ara_world_builder_addon.zip). O instalador do Windows extrai esse pacote sobre a raiz do World Builder.
+
+---
+
 <p align="center">
   <img src="branding/logo.svg" width="160" alt="Knoxify logo"/>
 </p>
