@@ -1,6 +1,6 @@
 # Araçatexas World Builder — gerador visual
 
-Este repositório agora inclui um gerador visual independente para transformar o mapa preparado do Araçatexas em uma primeira versão procedural de pixel art. O fluxo antigo Knoxify/Project Zomboid continua preservado.
+Este repositório inclui o gerador visual do Araçatexas, integrado ao fluxo do jogo. Além da prévia em pixel art, ele cria ocupação residencial determinística por lote: casas novas em terrenos residenciais adequados, muros, portões, acessos pavimentados, garagens e quintais. O fluxo antigo Knoxify/Project Zomboid continua preservado.
 
 ## Executar no Windows
 
@@ -8,7 +8,8 @@ Este repositório agora inclui um gerador visual independente para transformar o
 2. Execute `install_aracatexas_world_builder.bat`.
 3. O instalador extrai o complemento, instala as dependências Python e inicia o servidor.
 4. Abra **http://127.0.0.1:5001/**.
-5. Selecione o arquivo `public/data/map.json` do repositório `aracatexas-game` (não é necessário integrar nem modificar o jogo).
+5. Selecione `public/data/aracatexas_map.json` do repositório `aracatexas-game`.
+6. Gere e baixe o mapa final (`aracatexas_map.json`) e substitua o arquivo homônimo em `aracatexas-game/public/data/`. O jogo mantém `map.json` como fallback.
 
 Também é possível executar manualmente:
 ```powershell
@@ -22,20 +23,22 @@ python ara_world_app.py
 - Quatro imagens de controle para terreno, zonas, vias e construções.
 - Atlas base de terreno e elementos urbanos com células de 32×32 px.
 - Atlas inicial de construções modulares (casas, sobrados, comércio, edifício e galpão).
-- `aracatexas_map.json`, preservando as geometrias geográficas e acrescentando metadados visuais.
+- `aracatexas_map.json`, preservando quadras, lotes, ruas e construções existentes e acrescentando casas procedurais, ocupação residencial por lote, muros, portões, garagens, quintais e metadados visuais.
 - Índice de chunks e manifesto.
 - ZIP com os resultados para inspecionar ou transportar.
 
-O gerador usa uma seed fixa por padrão, para resultados reproduzíveis. A escala de referência é 2 metros por tile de 32×32 px. As construções e atlas são uma biblioteca inicial: esta entrega não altera o runtime Phaser nem afirma que os sprites já estejam integrados ao jogo.
+O gerador usa uma seed fixa por padrão, para resultados reproduzíveis. A escala de referência é 2 metros por tile de 32×32 px. As casas geradas continuam como footprints individuais no JSON; o jogo desenha telhados com a textura existente e representa muros, portões e garagens como elementos vetoriais separados, preservando colisões e futuras interações.
+
+Prévia: [mapa gerado](docs/aracatexas_residential_preview.png) · [captura do jogo](docs/aracatexas_residential_game_screenshot.png).
 
 ## CLI e testes
 
 ```powershell
-python -m generator.ara_world --source "C:\caminho\aracatexas-game\public\data\map.json" --output "output\aracatexas_visual_world"
+python -m generator.ara_world --source "C:\caminho\aracatexas-game\public\data\aracatexas_map.json" --output "output\aracatexas_visual_world"
 python -m unittest tests.test_ara_world -v
 ```
 
-O mapa de entrada precisa ser o JSON preparado pelo Araçatexas Game, com CRS EPSG:32722 e camadas `blocks`, `lots`, `buildings` e `roads`. Nenhum arquivo do repositório principal do jogo é alterado.
+O mapa de entrada precisa ser o JSON preparado pelo Araçatexas Game, com CRS EPSG:32722 e camadas `blocks`, `lots`, `buildings` e `roads`. O gerador lê a origem sem modificá-la; o mapa exportado deve substituir `public/data/aracatexas_map.json` para o jogo carregar as novas residências.
 
 ## Arquivo do complemento
 

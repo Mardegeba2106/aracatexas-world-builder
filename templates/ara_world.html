@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Araçatexas World Builder</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/ara_world.css') }}">
+</head>
+<body data-api-url="{{ url_for('ara_world.api_generate') }}">
+  <header class="topbar">
+    <div class="brand-mark">A</div>
+    <div>
+      <p class="eyebrow">FÁBRICA DE CIDADES</p>
+      <h1>Araçatexas <span>World Builder</span></h1>
+      <p class="subtitle">Do mapa geográfico para um mundo em pixel art.</p>
+    </div>
+    <div class="version">WORLD ENGINE / 0.1</div>
+  </header>
+
+  <main>
+    <section class="intro">
+      <div class="intro-copy">
+        <p class="eyebrow">PRIMEIRO PIPELINE VISUAL</p>
+        <h2>Transforme as ruas reais em uma cidade de jogo.</h2>
+        <p>O gerador preserva quadras, lotes, edifícios e traçados viários do mapa do Araçatexas. Também ocupa lotes residenciais adequados com novas casas, muros, portões, garagens e quintais, mantendo cada elemento separado no JSON.</p>
+      </div>
+      <div class="specs">
+        <div><strong>32×32</strong><span>pixels por tile</span></div>
+        <div><strong>2 m</strong><span>por tile do mundo</span></div>
+        <div><strong>UTM 22S</strong><span>coordenadas preservadas</span></div>
+      </div>
+    </section>
+
+    <section class="workspace">
+      <div class="panel upload-panel">
+        <div class="panel-heading"><span class="step">01</span><div><h3>Carregar mapa geográfico</h3><p>Use o arquivo real preparado pelo jogo.</p></div></div>
+        <label class="dropzone" id="dropzone" for="map-file">
+          <input id="map-file" type="file" accept=".json,application/json">
+          <span class="upload-icon">↑</span>
+          <strong id="file-name">Solte o aracatexas_map.json aqui</strong>
+          <small>ou clique para selecionar o arquivo</small>
+        </label>
+        <div class="source-hint"><b>Onde encontrar:</b><code>aracatexas-game/public/data/aracatexas_map.json</code></div>
+        <button id="generate-button" disabled>GERAR MUNDO VISUAL <span>→</span></button>
+        <p id="status" role="status" aria-live="polite">Selecione o mapa para começar.</p>
+        <div class="pipeline-list">
+          <div><i>✓</i><span>Geometrias reais preservadas</span></div>
+          <div><i>✓</i><span>Seed determinística</span></div>
+          <div><i>✓</i><span>Texturas e atlas 32×32</span></div>
+          <div><i>✓</i><span>Exportação compatível com Phaser</span></div>
+        </div>
+      </div>
+
+      <div class="panel preview-panel">
+        <div class="panel-heading"><span class="step">02</span><div><h3>Prévia do mundo</h3><p>Renderização de inspeção em pixel art.</p></div></div>
+        <div class="preview-frame" id="preview-frame">
+          <div class="preview-placeholder"><div class="placeholder-grid"></div><div class="placeholder-title">ARAÇATEXAS<span>WORLD PREVIEW</span></div><small>A prévia aparecerá aqui após a geração.</small></div>
+          <img id="preview-image" alt="Prévia em pixel art do mapa de Araçatexas" hidden>
+        </div>
+        <div class="stats" id="stats" hidden>
+          <div><strong id="count-roads">0</strong><span>vias</span></div>
+          <div><strong id="count-blocks">0</strong><span>quadras</span></div>
+          <div><strong id="count-lots">0</strong><span>lotes</span></div>
+          <div><strong id="count-buildings">0</strong><span>construções</span></div>
+          <div><strong id="count-residences">0</strong><span>casas novas</span></div>
+          <div><strong id="count-properties">0</strong><span>propriedades</span></div>
+          <div><strong id="count-trees">0</strong><span>árvores novas</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel outputs" id="outputs" hidden>
+      <div class="panel-heading"><span class="step">03</span><div><h3>Arquivos gerados</h3><p>Pacote pronto para inspeção e integração ao jogo.</p></div></div>
+      <div class="output-grid">
+        <a class="output-card primary" id="zip-link" href="#"><span class="file-symbol">ZIP</span><strong>Pacote completo</strong><small>Prévia, atlas, controles, JSON e documentação</small><b>BAIXAR PACOTE ↓</b></a>
+        <a class="output-card" id="map-link" href="#"><span class="file-symbol">JSON</span><strong>Mapa para o jogo</strong><small>Geometrias originais + metadados visuais</small><b>BAIXAR MAPA ↓</b></a>
+        <a class="output-card" id="tiles-link" href="#"><span class="file-symbol">PNG</span><strong>Atlas de tiles</strong><small>Chão, asfalto, calçadas e sinalização</small><b>ABRIR ATLAS ↗</b></a>
+        <a class="output-card" id="buildings-link" href="#"><span class="file-symbol">PNG</span><strong>Atlas de construções</strong><small>Casas, sobrados, comércios e galpões</small><b>ABRIR ATLAS ↗</b></a>
+      </div>
+      <p class="integration-note">Substitua public/data/aracatexas_map.json pelo mapa exportado. O jogo preserva a textura atual das casas e desenha muros, portões e garagens como elementos separados.</p>
+    </section>
+
+    <footer>ARAÇATEXAS · UMA CIDADE. MIL HISTÓRIAS. <span>Dados geográficos © OpenStreetMap contributors</span></footer>
+  </main>
+  <script src="{{ url_for('static', filename='js/ara_world.js') }}" defer></script>
+</body>
+</html>
