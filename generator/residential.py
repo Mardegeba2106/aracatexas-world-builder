@@ -115,7 +115,7 @@ def _frontage_edge(geometry, roads, road_records=None):
             rx = road_segment.coords[-1][0] - road_segment.coords[0][0]
             ry = road_segment.coords[-1][1] - road_segment.coords[0][1]
             alignment = abs((sx * rx + sy * ry) / ((math.hypot(sx, sy) * math.hypot(rx, ry)) or 1.0))
-            score = distance + (1.0 - alignment) * min(24.0, max(10.0, segment.length * 0.35))
+            score = distance + (1.0 - alignment) * min(30.0, max(18.0, segment.length * 0.55))
         else:
             distance = midpoint.distance(roads) if roads is not None else float("inf")
             score = distance
@@ -143,7 +143,8 @@ def _wall_and_gate_layout(
     geometry, frontage, rng, house_geometry, road_records=(), source_frontage=None
 ):
     """Build a full parcel boundary, front access openings and a driveway/garage pad."""
-    source_frontage = source_frontage or frontage
+    if source_frontage is None:
+        source_frontage = frontage
     a, b = list(frontage.coords)[0], list(frontage.coords)[-1]
     dx, dy = b[0] - a[0], b[1] - a[1]
     length = math.hypot(dx, dy) or 1.0
@@ -302,8 +303,9 @@ def _new_house_geometry(geometry, frontage, rng):
         "casa_estendida" if style_roll < 0.56 else
         "casa_terrea"
     )
-    # Bias the footprint slightly left so a right-side vehicle gate can reach a driveway.
-    cx = (min_x + max_x) / 2 + rng.uniform(-0.13, -0.07) * width
+    # Keep the house on the left side of the parcel and reserve a usable access strip on the right.
+    available_side_space = max(0.0, width - house_width - side_margin * 2)
+    cx = min_x + side_margin + house_width / 2 + rng.uniform(0.0, 0.12) * available_side_space
     if front_is_min_y:
         cy = min_y + front_setback + house_depth / 2
     else:
