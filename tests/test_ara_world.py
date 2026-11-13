@@ -118,6 +118,7 @@ class AraWorldTests(unittest.TestCase):
             self.assertTrue(second_lot["residential"]["generated"])
             self.assertEqual(second_lot["residential"]["type"], original_type)
             self.assertEqual(second_lot["residential"]["layout"], first_lot["residential"]["layout"])
+            self.assertEqual(second_lot["residential"], first_lot["residential"])
 
     def test_frontage_prefers_road_parallel_edge_over_crossing_side(self):
         parcel = Polygon([(0, -10), (20, -10), (20, 10), (0, 10), (0, -10)])
