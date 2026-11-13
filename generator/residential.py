@@ -51,13 +51,32 @@ def _road_network(map_data):
     return unary_union(lines) if lines else None
 
 
+def _nearest_road_segment(point, road_records):
+    candidates = []
+    for line, width in road_records:
+        coords = list(line.coords)
+        for start, end in zip(coords, coords[1:]):
+            segment = LineString([start, end])
+            candidates.append((point.distance(segment), segment, width))
+    return min(candidates, key=lambda item: item[0]) if candidates else None
+
+
 def _move_segment_inside(segment, geometry, road_records, extra_clearance=0.18):
-    """Inset a road-adjacent parcel edge enough to keep walls outside the road/sidewalk."""
+    """Inset a road-adjacent parcel edge without moving a road-crossing side edge."""
     if not road_records or segment.is_empty:
         return segment
     midpoint = segment.interpolate(0.5, normalized=True)
-    road, width = min(road_records, key=lambda item: midpoint.distance(item[0]))
-    distance = midpoint.distance(road)
+    nearest = _nearest_road_segment(midpoint, road_records)
+    if nearest is None:
+        return segment
+    distance, road_segment, width = nearest
+    sx, sy = segment.coords[-1][0] - segment.coords[0][0], segment.coords[-1][1] - segment.coords[0][1]
+    rx, ry = road_segment.coords[-1][0] - road_segment.coords[0][0], road_segment.coords[-1][1] - road_segment.coords[0][1]
+    alignment = abs((sx * rx + sy * ry) / ((math.hypot(sx, sy) * math.hypot(rx, ry)) or 1.0))
+    # A road crossing a parcel is not a frontage. Only inset edges parallel to a road.
+    if alignment < 0.55:
+        return segment
+
     clearance = width / 2 + 0.75
     offset = min(3.5, clearance - distance + extra_clearance)
     if offset <= 0:
@@ -76,7 +95,8 @@ def _move_segment_inside(segment, geometry, road_records, extra_clearance=0.18):
             return candidate
     return segment
 
-def _frontage_edge(geometry, roads):
+
+def _frontage_edge(geometry, roads, road_records=None):
     exterior = max(
         (poly for poly in getattr(geometry, "geoms", [geometry]) if isinstance(poly, Polygon)),
         key=lambda poly: poly.area,
@@ -88,8 +108,18 @@ def _frontage_edge(geometry, roads):
         if segment.length < 2.5:
             continue
         midpoint = segment.interpolate(0.5, normalized=True)
-        distance = midpoint.distance(roads) if roads is not None else float("inf")
-        candidates.append((distance, -segment.length, segment))
+        if road_records:
+            nearest = _nearest_road_segment(midpoint, road_records)
+            distance, road_segment, _ = nearest
+            sx, sy = b[0] - a[0], b[1] - a[1]
+            rx = road_segment.coords[-1][0] - road_segment.coords[0][0]
+            ry = road_segment.coords[-1][1] - road_segment.coords[0][1]
+            alignment = abs((sx * rx + sy * ry) / ((math.hypot(sx, sy) * math.hypot(rx, ry)) or 1.0))
+            score = distance + (1.0 - alignment) * min(24.0, max(10.0, segment.length * 0.35))
+        else:
+            distance = midpoint.distance(roads) if roads is not None else float("inf")
+            score = distance
+        candidates.append((score, -segment.length, segment))
     if not candidates:
         return None
     return min(candidates, key=lambda item: (item[0], item[1]))[2]
@@ -402,7 +432,7 @@ def generate_residential_properties(map_data: dict, seed: int) -> dict:
         if geometry is None or geometry.area < 75:
             skipped += 1
             continue
-        frontage = _frontage_edge(geometry, roads)
+        frontage = _frontage_edge(geometry, roads, road_records)
         if frontage is None:
             skipped += 1
             continue
