@@ -29,7 +29,7 @@ python ara_world_app.py
 
 O gerador usa uma seed fixa por padrão, para resultados reproduzíveis. A escala de referência é 2 metros por tile de 32×32 px. As casas geradas continuam como footprints individuais no JSON; o jogo desenha telhados com a textura existente e representa muros, portões e garagens como elementos vetoriais separados, preservando colisões e futuras interações.
 
-Prévia: [mapa gerado](docs/aracatexas_residential_preview.png) · [captura do jogo](docs/aracatexas_residential_game_screenshot.png).
+Comparação visual: [antes](docs/aracatexas_before_residential.png) · [depois no jogo](docs/aracatexas_residential_game_screenshot.png) · [prévia do gerador](docs/aracatexas_residential_preview.png).
 
 ## CLI e testes
 
