@@ -448,6 +448,22 @@ def generate_residential_properties(map_data: dict, seed: int) -> dict:
             None,
         )
         previous_property = lot.get("residential") or {}
+        if int(previous_property.get("version", 0) or 0) >= 2:
+            # Exported v2 layouts are already deterministic; preserve them byte-for-byte on re-export.
+            property_count += 1
+            saved_layout = previous_property.get("layout", "existing")
+            layout_counts[saved_layout] = layout_counts.get(saved_layout, 0) + 1
+            saved_garage_type = previous_property.get("garage_type", "none")
+            garage_counts[saved_garage_type] = garage_counts.get(saved_garage_type, 0) + 1
+            for wall in previous_property.get("walls", []):
+                if len(wall) != 2:
+                    continue
+                key = tuple(sorted(
+                    tuple(round(float(value), 2) for value in point) for point in wall
+                ))
+                seen_wall_segments.add(key)
+            continue
+
         house_kind = (
             previous_property.get("type")
             if previous_property.get("generated")
