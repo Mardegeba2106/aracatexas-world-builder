@@ -110,12 +110,13 @@ def _frontage_edge(geometry, roads, road_records=None):
         midpoint = segment.interpolate(0.5, normalized=True)
         if road_records:
             nearest = _nearest_road_segment(midpoint, road_records)
-            distance, road_segment, _ = nearest
+            distance, road_segment, road_width = nearest
             sx, sy = b[0] - a[0], b[1] - a[1]
             rx = road_segment.coords[-1][0] - road_segment.coords[0][0]
             ry = road_segment.coords[-1][1] - road_segment.coords[0][1]
             alignment = abs((sx * rx + sy * ry) / ((math.hypot(sx, sy) * math.hypot(rx, ry)) or 1.0))
-            score = distance + (1.0 - alignment) * min(30.0, max(18.0, segment.length * 0.55))
+            crossing_penalty = max(20.0, road_width + 8.0, min(34.0, segment.length * 0.55))
+            score = distance + (1.0 - alignment) * crossing_penalty
         else:
             distance = midpoint.distance(roads) if roads is not None else float("inf")
             score = distance
