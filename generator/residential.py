@@ -225,8 +225,8 @@ def _wall_and_gate_layout(
         gate_center = ((gate_a[0] + gate_b[0]) / 2, (gate_a[1] + gate_b[1]) / 2)
         width = min(2.9, max(2.4, length * 0.15))
         depth = rng.uniform(4.2, 5.2)
-        cx = gate_center[0] + inward[0] * (depth / 2 + 0.45)
-        cy = gate_center[1] + inward[1] * (depth / 2 + 0.45)
+        cx = gate_center[0] + inward[0] * (depth / 2 + 0.08)
+        cy = gate_center[1] + inward[1] * (depth / 2 + 0.08)
         tx, ty = tangent
         nx, ny = inward
         corners = [
