@@ -567,26 +567,116 @@ def generate_world(map_data: dict, output_dir: str | Path, seed: int = SEED) -> 
         building_seed = _stable_int(f"{seed}:{building_id}")
         kind = str(building.get("building_type", "house")).lower()
         category = "industrial" if any(t in kind for t in ("industrial", "warehouse", "factory")) else "commercial" if any(t in kind for t in ("commercial", "retail", "shop", "office")) else "residential"
-        styles.append({"id": building_id, "category": category, "variant": building_seed % 4,
-                       "seed": building_seed})
+        visual_style = building.get("visual_style") or {}
+        style_entry = {
+            "id": building_id,
+            "category": category,
+            "variant": visual_style.get("variant", building_seed % 4),
+            "seed": visual_style.get("seed", building_seed),
+        }
+        if visual_style.get("residence_type"):
+            style_entry["residence_type"] = visual_style["residence_type"]
+        styles.append(style_entry)
         for polygon in _rings_to_pixels(building.get("polygons"), transform):
             _draw_roof(draw, polygon, building, building_seed)
 
-    # Residential driveways, walls and gates are separate geometry, not a flattened image.
+    # Residential lot surfaces, driveways, walls and gates.
     for lot in game_map.get("lots", []):
         residence = lot.get("residential") or {}
+        yard = residence.get("yard") or {}
+        yard_palette = {
+            "grass": (83, 112, 65),
+            "garden": (74, 116, 65),
+            "dirt": (132, 108, 76),
+        }
+        yard_fill = yard_palette.get(yard.get("surface"), yard_palette["grass"])
+        for yard_poly in _rings_to_pixels(yard.get("polygons", []), transform):
+            if not yard_poly:
+                continue
+            mask = Image.new("L", canvas.size, 0)
+            mask_draw = ImageDraw.Draw(mask)
+            mask_draw.polygon(yard_poly[0], fill=255)
+            for hole in yard_poly[1:]:
+                mask_draw.polygon(hole, fill=0)
+            canvas.paste(yard_fill, (0, 0), mask)
+
+            outer = yard_poly[0]
+            xs = [p[0] for p in outer]
+            ys = [p[1] for p in outer]
+            spacing = max(4, int(3.0 * ppm))
+            for py in range(min(ys) + 2, max(ys), spacing):
+                for px in range(min(xs) + 2, max(xs), spacing):
+                    if not _point_in_ring((px, py), outer):
+                        continue
+                    if any(_point_in_ring((px, py), hole) for hole in yard_poly[1:]):
+                        continue
+                    if yard.get("surface") == "garden":
+                        draw.point((px, py), fill=(112, 145, 76))
+                    elif yard.get("surface") == "dirt":
+                        draw.point((px, py), fill=(155, 129, 91))
+                    else:
+                        draw.point((px, py), fill=(102, 132, 75))
+
+        garage_type = residence.get("garage_type", "uncovered")
         for garage_poly in _rings_to_pixels(residence.get("garage", []), transform):
-            if garage_poly:
-                draw.polygon(garage_poly[0], fill=(119, 119, 108), outline=(75, 79, 70))
-                if len(garage_poly[0]) >= 4:
-                    draw.line(garage_poly[0], fill=(163, 159, 137), width=1)
+            if not garage_poly:
+                continue
+            if garage_type == "covered":
+                draw.polygon(garage_poly[0], fill=(111, 76, 59), outline=(55, 48, 41))
+                for yy in range(min(p[1] for p in garage_poly[0]) + 3,
+                                max(p[1] for p in garage_poly[0]), 5):
+                    draw.line((min(p[0] for p in garage_poly[0]) + 2, yy,
+                               max(p[0] for p in garage_poly[0]) - 2, yy),
+                              fill=(78, 57, 47), width=1)
+            else:
+                draw.polygon(garage_poly[0], fill=(132, 132, 119), outline=(75, 79, 70))
+                for yy in range(min(p[1] for p in garage_poly[0]) + 3,
+                                max(p[1] for p in garage_poly[0]), 5):
+                    draw.line((min(p[0] for p in garage_poly[0]) + 2, yy,
+                               max(p[0] for p in garage_poly[0]) - 2, yy),
+                              fill=(154, 153, 137), width=1)
+
+        wall_type = residence.get("wall_type", "plaster")
+        wall_colors = {
+            "plaster": (194, 184, 156),
+            "brick": (157, 111, 83),
+            "concrete": (148, 153, 147),
+        }
+        wall_color = wall_colors.get(wall_type, wall_colors["plaster"])
         for wall in residence.get("walls", []):
-            if len(wall) == 2:
-                draw.line([transform(wall[0]), transform(wall[1])], fill=(185, 174, 145), width=max(1, int(0.55 * ppm)))
+            if len(wall) != 2:
+                continue
+            start, end = transform(wall[0]), transform(wall[1])
+            draw.line((start, end), fill=(48, 54, 45), width=max(2, int(1.1 * ppm)))
+            draw.line((start, end), fill=wall_color, width=max(1, int(0.65 * ppm)))
+            dx, dy = end[0] - start[0], end[1] - start[1]
+            length = math.hypot(dx, dy)
+            if length < 4:
+                continue
+            nx, ny = -dy / length, dx / length
+            spacing = max(5, int((2.0 if wall_type == "brick" else 3.5) * ppm))
+            for offset in range(spacing, int(length), spacing):
+                t = offset / length
+                px, py = start[0] + dx * t, start[1] + dy * t
+                joint = max(1, int(0.7 * ppm))
+                draw.line((int(px - nx * joint), int(py - ny * joint),
+                           int(px + nx * joint), int(py + ny * joint)),
+                          fill=(91, 83, 68) if wall_type == "brick" else (224, 215, 190),
+                          width=1)
+
         for gate in residence.get("gates", []):
             line = gate.get("line", [])
-            if len(line) == 2:
-                draw.line([transform(line[0]), transform(line[1])], fill=(72, 70, 61), width=max(1, int(0.8 * ppm)))
+            if len(line) != 2:
+                continue
+            start, end = transform(line[0]), transform(line[1])
+            draw.line((start, end), fill=(48, 54, 52), width=max(2, int(1.1 * ppm)))
+            dx, dy = end[0] - start[0], end[1] - start[1]
+            length = math.hypot(dx, dy) or 1.0
+            bars = max(2, int(length / max(3.0, ppm * 0.7)))
+            for index in range(1, bars):
+                t = index / bars
+                px, py = start[0] + dx * t, start[1] + dy * t
+                draw.point((int(px), int(py)), fill=(202, 194, 163))
 
     # Existing OSM trees + repeatable trees in unoccupied lots.
     generated_trees = _generate_empty_lot_trees(game_map, seed)
@@ -611,7 +701,10 @@ def generate_world(map_data: dict, output_dir: str | Path, seed: int = SEED) -> 
     for feature in game_map.get("buildings", []):
         style = style_by_id.get(str(feature.get("id")))
         if style:
-            feature["visual_style"] = {k: style[k] for k in ("category", "variant", "seed")}
+            feature["visual_style"] = {
+                k: style[k] for k in ("category", "variant", "seed", "residence_type")
+                if k in style
+            }
     game_map["visual"] = {
         "format": "aracatexas-world-v2",
         "tile_size_px": TILE_SIZE,
