@@ -399,6 +399,10 @@ def generate_residential_properties(map_data: dict, seed: int) -> dict:
     """Add varied deterministic residential layouts to suitable parcels."""
     road_records = _road_records(map_data)
     roads = unary_union([line for line, _ in road_records]) if road_records else None
+    road_footprint = (
+        unary_union([line.buffer(width / 2 + 0.75) for line, width in road_records])
+        if road_records else None
+    )
     by_lot = {}
     for building in map_data.get("buildings", []):
         lot_id = building.get("lot_id")
@@ -570,7 +574,11 @@ def generate_residential_properties(map_data: dict, seed: int) -> dict:
 
         house_area = float(house_geometry.area) if house_geometry is not None else 0.0
         garage_area = float(garage.area) if garage is not None else 0.0
+        # Keep the rendered yard out of the road/sidewalk footprint. The lot
+        # boundary remains the source of truth; this only clips the visible yard surface.
         yard_geometry = geometry
+        if road_footprint is not None:
+            yard_geometry = yard_geometry.difference(road_footprint)
         if house_geometry is not None:
             yard_geometry = yard_geometry.difference(house_geometry)
         if garage is not None:
