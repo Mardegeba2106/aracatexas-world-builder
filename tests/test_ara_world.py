@@ -7,7 +7,9 @@ import random
 from shapely.geometry import LineString, Polygon
 from shapely.ops import unary_union
 
-from generator.residential import _frontage_edge, _wall_and_gate_layout
+from generator.residential import (
+    _frontage_edge, _wall_and_gate_layout, generate_residential_properties,
+)
 from pathlib import Path
 
 from PIL import Image
@@ -142,6 +144,28 @@ class AraWorldTests(unittest.TestCase):
         self.assertIn(frozenset({(0.0, 0.0), (0.0, 15.0)}), keys)
         self.assertIn(frozenset({(20.0, 0.0), (20.0, 15.0)}), keys)
         self.assertIn(frozenset({(0.0, 15.0), (20.0, 15.0)}), keys)
+
+    def test_adjacent_residential_lots_share_one_boundary_wall(self):
+        source = {
+            "lots": [
+                {"id": "left", "zone": "residential", "polygons": [[[
+                    [0, 0], [10, 0], [10, 20], [0, 20], [0, 0]
+                ]]]},
+                {"id": "right", "zone": "residential", "polygons": [[[
+                    [10, 0], [20, 0], [20, 20], [10, 20], [10, 0]
+                ]]]},
+            ],
+            "buildings": [
+                {"id": "house_left", "lot_id": "left", "building_type": "house",
+                 "polygons": [[[[2, 3], [8, 3], [8, 12], [2, 12], [2, 3]]]]},
+                {"id": "house_right", "lot_id": "right", "building_type": "house",
+                 "polygons": [[[[12, 3], [18, 3], [18, 12], [12, 12], [12, 3]]]]},
+            ],
+            "roads": [{"width_m": 7, "lines": [[[-10, -6], [30, -6]]]}],
+        }
+        result = generate_residential_properties(source, seed=23)
+        self.assertEqual(result["properties"], 2)
+        self.assertGreaterEqual(result["shared_wall_segments_removed"], 1)
 
     def test_does_not_generate_houses_in_commercial_lots(self):
         source = json.loads(json.dumps(SAMPLE_MAP))
