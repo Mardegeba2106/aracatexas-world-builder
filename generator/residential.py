@@ -186,8 +186,17 @@ def _wall_and_gate_layout(
             # Exclude only the actual frontage edge, not side edges touching its endpoints.
             if segment.intersection(source_frontage).length > 0.02:
                 continue
+            original_start, original_end = p, q
             segment = _move_segment_inside(segment, geometry, road_records)
-            walls.append([_xy(segment.coords[0]), _xy(segment.coords[-1])])
+            moved_start, moved_end = segment.coords[0], segment.coords[-1]
+            walls.append([_xy(moved_start), _xy(moved_end)])
+            # Short returns keep an inset street/side wall connected to the parcel's other edges.
+            if math.hypot(original_start[0] - moved_start[0],
+                          original_start[1] - moved_start[1]) > 0.05:
+                walls.append([_xy(original_start), _xy(moved_start)])
+            if math.hypot(original_end[0] - moved_end[0],
+                          original_end[1] - moved_end[1]) > 0.05:
+                walls.append([_xy(original_end), _xy(moved_end)])
 
     points = [0.0]
     for start_t, end_t in sorted(gaps):
@@ -200,6 +209,13 @@ def _wall_and_gate_layout(
         p = (a[0] + dx * start_t, a[1] + dy * start_t)
         q = (a[0] + dx * end_t, a[1] + dy * end_t)
         walls.append([_xy(p), _xy(q)])
+
+    # Connect an inset frontage back to the original lot corners.
+    source_a, source_b = list(source_frontage.coords)[0], list(source_frontage.coords)[-1]
+    if math.hypot(a[0] - source_a[0], a[1] - source_a[1]) > 0.05:
+        walls.append([_xy(source_a), _xy(a)])
+    if math.hypot(b[0] - source_b[0], b[1] - source_b[1]) > 0.05:
+        walls.append([_xy(source_b), _xy(b)])
 
     garage = None
     vehicle_gate = next((gate for gate in gates if gate["type"] == "vehicle"), None)
