@@ -2,6 +2,12 @@ import hashlib
 import json
 import tempfile
 import unittest
+import random
+
+from shapely.geometry import LineString, Polygon
+from shapely.ops import unary_union
+
+from generator.residential import _frontage_edge, _wall_and_gate_layout
 from pathlib import Path
 
 from PIL import Image
@@ -75,9 +81,21 @@ class AraWorldTests(unittest.TestCase):
             self.assertTrue(empty_lot["residential"]["walls"])
             self.assertTrue(empty_lot["residential"]["gates"])
             self.assertIn(empty_lot["residential"]["yard"]["class"], {"small", "medium", "large"})
+            self.assertTrue(empty_lot["residential"]["yard"]["polygons"])
+            self.assertIn(empty_lot["residential"]["yard"]["surface"], {"grass", "garden", "dirt"})
+            self.assertIn(empty_lot["residential"]["layout"], {
+                "front_house_back_yard", "rear_house_front_yard",
+                "center_house_front_back", "large_house", "compact_house"
+            })
+            self.assertIn(empty_lot["residential"]["garage_type"], {"covered", "uncovered", "none"})
+            self.assertIn(empty_lot["residential"]["wall_type"], {"plaster", "brick", "concrete"})
             self.assertGreater(empty_lot["residential"]["house"]["length_m"], 0)
             self.assertIn("rear", empty_lot["residential"]["setbacks_m"])
             self.assertGreaterEqual(empty_lot["residential"]["garage_area_m2"], 0)
+            generated_house = next(item for item in generated if item["id"] in
+                                   empty_lot["residential"]["house"]["building_ids"])
+            self.assertIn(generated_house["visual_style"]["residence_type"],
+                          {"casa_terrea", "casa_antiga", "sobrado", "casa_estendida"})
             self.assertEqual(len(generated), 1)
             self.assertTrue((out / "aracatexas_visual_world.zip").stat().st_size > 1000)
 
@@ -99,6 +117,30 @@ class AraWorldTests(unittest.TestCase):
             self.assertEqual(result["counts"]["generated_residences"], 0)
             self.assertTrue(second_lot["residential"]["generated"])
             self.assertEqual(second_lot["residential"]["type"], original_type)
+            self.assertEqual(second_lot["residential"]["layout"], first_lot["residential"]["layout"])
+
+    def test_frontage_prefers_road_parallel_edge_over_crossing_side(self):
+        parcel = Polygon([(0, -10), (20, -10), (20, 10), (0, 10), (0, -10)])
+        road = LineString([(-10, 0), (30, 0)])
+        frontage = _frontage_edge(parcel, unary_union([road]), [(road, 7.0)])
+        self.assertIsNotNone(frontage)
+        self.assertAlmostEqual(frontage.coords[0][1], frontage.coords[-1][1], places=6)
+        self.assertGreater(abs(frontage.coords[0][1]), 9.0)
+
+    def test_wall_generation_keeps_side_edges_that_only_touch_frontage_corners(self):
+        parcel = Polygon([(0, 0), (20, 0), (20, 15), (0, 15), (0, 0)])
+        frontage = LineString([(0, 0), (20, 0)])
+        walls, _, _, _, _ = _wall_and_gate_layout(
+            parcel, frontage, random.Random(5), None
+        )
+        keys = {
+            frozenset((tuple(round(v, 2) for v in wall[0]),
+                       tuple(round(v, 2) for v in wall[1])))
+            for wall in walls
+        }
+        self.assertIn(frozenset({(0.0, 0.0), (0.0, 15.0)}), keys)
+        self.assertIn(frozenset({(20.0, 0.0), (20.0, 15.0)}), keys)
+        self.assertIn(frozenset({(0.0, 15.0), (20.0, 15.0)}), keys)
 
     def test_does_not_generate_houses_in_commercial_lots(self):
         source = json.loads(json.dumps(SAMPLE_MAP))
