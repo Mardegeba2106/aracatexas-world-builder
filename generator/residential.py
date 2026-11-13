@@ -158,8 +158,8 @@ def _wall_and_gate_layout(
     garage_type = "none" if garage_roll < 0.14 else "covered" if garage_roll < 0.54 else "uncovered"
     vehicle_width = min(3.2, length * 0.34) if length >= 7 and garage_type != "none" else 0.0
     pedestrian_width = min(1.4, length * 0.26) if length >= 2.5 else 0.0
-    vehicle_t = 0.67 if rng.random() > 0.5 else 0.58
-    pedestrian_t = 0.19 if vehicle_t > 0.6 else 0.84
+    vehicle_t = 0.84 if rng.random() > 0.5 else 0.78
+    pedestrian_t = 0.16 if vehicle_t > 0.8 else 0.88
     gaps = []
     gates = []
     for kind, t, width in (
@@ -302,7 +302,8 @@ def _new_house_geometry(geometry, frontage, rng):
         "casa_estendida" if style_roll < 0.56 else
         "casa_terrea"
     )
-    cx = (min_x + max_x) / 2 + rng.uniform(-0.045, 0.045) * width
+    # Bias the footprint slightly left so a right-side vehicle gate can reach a driveway.
+    cx = (min_x + max_x) / 2 + rng.uniform(-0.13, -0.07) * width
     if front_is_min_y:
         cy = min_y + front_setback + house_depth / 2
     else:
