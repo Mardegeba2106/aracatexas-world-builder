@@ -8,7 +8,8 @@ from shapely.geometry import LineString, Polygon
 from shapely.ops import unary_union
 
 from generator.residential import (
-    _frontage_edge, _wall_and_gate_layout, generate_residential_properties,
+    _frontage_edge, _wall_and_gate_layout, _new_house_geometry,
+    generate_residential_properties,
 )
 from pathlib import Path
 
@@ -166,6 +167,38 @@ class AraWorldTests(unittest.TestCase):
         result = generate_residential_properties(source, seed=23)
         self.assertEqual(result["properties"], 2)
         self.assertGreaterEqual(result["shared_wall_segments_removed"], 1)
+
+    def test_residential_layout_profiles_cover_front_rear_center_large_and_compact(self):
+        parcel = Polygon([(0, 0), (30, 0), (30, 24), (0, 24), (0, 0)])
+        frontage = LineString([(0, 0), (30, 0)])
+        layouts = set()
+        for seed in range(200):
+            house, _, _, layout = _new_house_geometry(
+                parcel, frontage, random.Random(seed)
+            )
+            if house is not None:
+                self.assertTrue(parcel.covers(house))
+                layouts.add(layout)
+        self.assertEqual(layouts, {
+            "front_house_back_yard", "rear_house_front_yard",
+            "center_house_front_back", "large_house", "compact_house"
+        })
+
+    def test_yard_geometry_does_not_cover_the_road_or_sidewalk_footprint(self):
+        source = json.loads(json.dumps(SAMPLE_MAP))
+        with tempfile.TemporaryDirectory() as temp:
+            generate_world(source, Path(temp), seed=19)
+            game_map = json.loads(
+                (Path(temp) / "aracatexas_map.json").read_text(encoding="utf-8")
+            )
+            road = LineString(source["roads"][0]["lines"][0]).buffer(
+                source["roads"][0]["width_m"] / 2 + 0.75
+            )
+            for lot in game_map["lots"]:
+                residence = lot.get("residential") or {}
+                for rings in residence.get("yard", {}).get("polygons", []):
+                    yard = Polygon(rings[0], rings[1:])
+                    self.assertLess(yard.intersection(road).area, 0.01)
 
     def test_does_not_generate_houses_in_commercial_lots(self):
         source = json.loads(json.dumps(SAMPLE_MAP))
