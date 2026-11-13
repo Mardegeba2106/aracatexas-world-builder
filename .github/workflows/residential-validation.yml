@@ -1,0 +1,144 @@
+name: Araçatexas residential validation
+
+on:
+  push:
+    branches:
+      - feat/residential-lot-layouts
+    paths:
+      - "generator/**"
+      - "tests/**"
+      - "requirements.txt"
+      - ".github/workflows/residential-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout world builder
+        uses: actions/checkout@v4
+
+      - name: Checkout game branch
+        uses: actions/checkout@v4
+        with:
+          repository: Mardegeba2106/aracatexas-game
+          ref: feat/residential-lot-layouts
+          path: aracatexas-game
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install generator dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run world-builder tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Generate a temporary residential map
+        run: |
+          python -m generator.ara_world \
+            --source aracatexas-game/public/data/map.json \
+            --output /tmp/ara-residential-validation \
+            --seed 20261108
+          cp /tmp/ara-residential-validation/aracatexas_map.json aracatexas-game/public/data/aracatexas_map.json
+          cp /tmp/ara-residential-validation/aracatexas_tileset.png aracatexas-game/public/assets/aracatexas_tileset.png
+          cp /tmp/ara-residential-validation/aracatexas_buildings.png aracatexas-game/public/assets/aracatexas_buildings.png
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: aracatexas-game/package-lock.json
+
+      - name: Install game dependencies
+        working-directory: aracatexas-game
+        run: npm ci
+
+      - name: Run game data tests
+        working-directory: aracatexas-game
+        run: npm run test:data
+
+      - name: Build game
+        working-directory: aracatexas-game
+        run: npm run build
+
+      - name: Install browser smoke-test tools
+        working-directory: aracatexas-game
+        run: |
+          npm install --no-save --package-lock=false playwright
+          npx playwright install --with-deps chromium
+
+      - name: Run game in headless browser
+        working-directory: aracatexas-game
+        run: |
+          mkdir -p artifacts
+          npm run dev -- --host 127.0.0.1 > /tmp/ara-vite.log 2>&1 &
+          for i in $(seq 1 40); do
+            if curl --silent --fail http://127.0.0.1:5173/ > /dev/null; then break; fi
+            sleep 1
+          done
+          node --input-type=module <<'NODE'
+          import { chromium } from "playwright";
+
+          const browser = await chromium.launch({ headless: true });
+          const page = await browser.newPage({ viewport: { width: 1365, height: 820 } });
+          const errors = [];
+          const consoleMessages = [];
+
+          page.on("pageerror", error => errors.push(error.message));
+          page.on("console", message => {
+            const text = message.text();
+            consoleMessages.push(text);
+            if (message.type() === "error") errors.push(text);
+          });
+
+          try {
+            const response = await page.goto("http://127.0.0.1:5173/", {
+              waitUntil: "networkidle",
+              timeout: 45000
+            });
+            if (!response || !response.ok()) {
+              throw new Error("The game page did not return HTTP 200.");
+            }
+
+            await page.waitForSelector("canvas", { timeout: 30000 });
+            await page.waitForTimeout(7000);
+
+            const rendered = consoleMessages.some(message =>
+              message.includes("Mundo renderizado")
+            );
+            if (!rendered) {
+              throw new Error("Phaser canvas appeared, but the world-rendered log was not found.");
+            }
+            if (errors.length) {
+              throw new Error("Browser errors: " + errors.join(" | "));
+            }
+
+            await page.screenshot({ path: "artifacts/residential-smoke.png", fullPage: true });
+            console.log("BROWSER_SMOKE_OK");
+            console.log("WORLD_LOG:", consoleMessages.find(message => message.includes("Mundo renderizado")));
+          } finally {
+            await browser.close();
+          }
+          NODE
+
+      - name: Upload validation artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aracatexas-residential-validation
+          path: |
+            aracatexas-game/artifacts/residential-smoke.png
+            /tmp/ara-residential-validation/aracatexas_preview.png
+            /tmp/ara-residential-validation/manifest.json
+          if-no-files-found: warn
